@@ -4,6 +4,25 @@ import Err from 'es6-error'
 
 export type StrDict = {[id: string]: string}
 
+export interface FetchOptions<V> {
+    baseUrl?: ?string;
+    url?: ?string;
+    params?: ?StrDict;
+    getQueryParams?: ?(params: ?Object) => string;
+    postProcess?: ?(response: Response) => V;
+
+    body?: ?(Blob | FormData | URLSearchParams | string | Object);
+    cache?: ?CacheType;
+    credentials?: ?CredentialsType;
+    headers?: ?HeadersInit;
+    integrity?: ?string;
+    method?: ?MethodType;
+    mode?: ?ModeType;
+    redirect?: ?RedirectType;
+    referrer?: ?string;
+    referrerPolicy?: ?ReferrerPolicyType;
+}
+
 function isFormData(val: Object): boolean {
     return (typeof FormData !== 'undefined') && (val instanceof FormData)
 }
@@ -29,14 +48,14 @@ export function mergeHeaders(...headerSets: any[]): HeadersInit {
         if (isSupported && result instanceof Headers) {
             if (headers instanceof Headers) {
                 const entries: [string, string][] = Array.from(headers.entries())
-                for (let i = 0, l = entries.length; i < l; i++) {
-                    const [k, v] = entries[i]
+                for (let j = 0, k = entries.length; j < k; j++) {
+                    const [k, v] = entries[j]
                     result.append(k, v)
                 }
             } else {
                 const entries: string[] = Object.keys(headers)
-                for (let i = 0, l = entries.length; i < l; i++) {
-                    result.append(entries[i], headers[entries[i]])
+                for (let j = 0, k = entries.length; j < k; j++) {
+                    result.append(entries[j], headers[entries[j]])
                 }
             }
         } else {
@@ -45,25 +64,6 @@ export function mergeHeaders(...headerSets: any[]): HeadersInit {
     }
 
     return result
-}
-
-export interface FetchOptions<V> {
-    baseUrl?: ?string;
-    url?: ?string;
-    params?: ?StrDict;
-    getQueryParams?: ?(params: ?Object) => string;
-    postProcess?: ?(response: Response) => V;
-
-    body?: ?(Blob | FormData | URLSearchParams | string | Object);
-    cache?: ?CacheType;
-    credentials?: ?CredentialsType;
-    headers?: ?HeadersInit;
-    integrity?: ?string;
-    method?: ?MethodType;
-    mode?: ?ModeType;
-    redirect?: ?RedirectType;
-    referrer?: ?string;
-    referrerPolicy?: ?ReferrerPolicyType;
 }
 
 function pass(v: Response): any {
