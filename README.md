@@ -2,7 +2,7 @@
 
 Lightweight and extremely customizable alternative to [superagent][superagent], [request][request], [axios][axios], [frisbee][frisbee].
 
-RequestOptions builder toolkit for [whatwg-fetch](https://github.github.io/fetch). Easily create or extend custom fetcher options.
+RequestOptions builder toolkit for [whatwg-fetch][whatwg-fetch]. Easily create or extend custom fetcher options.
 
 Features:
 
@@ -249,3 +249,14 @@ export interface IFetcher<Result, Params: Object> {
     fetch(rec?: ?FetchOptions<Params>): Promise<Result>;
 }
 ```
+
+## License
+
+[MIT][license-url]
+
+[license-url]: LICENSE
+[superagent]: https://github.com/visionmedia/superagent
+[whatwg-fetch]: https://github.com/github/fetch
+[frisbee]: https://github.com/glazedio/frisbee
+[axios]: https://github.com/mzabriskie/axios
+[request]: https://github.com/request/request
