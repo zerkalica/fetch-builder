@@ -1,0 +1,6 @@
+[options]
+munge_underscores=true
+esproposal.class_static_fields=enable
+esproposal.class_instance_fields=enable
+module.name_mapper='^observable-helpers/i/\(.*\)' -> '<PROJECT_ROOT>/i/\1'
+module.name_mapper='^observable-helpers/\(.*\)' -> '<PROJECT_ROOT>/src/\1'
