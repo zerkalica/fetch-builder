@@ -3,15 +3,100 @@
 import Err from 'es6-error'
 
 export type StrDict = {[id: string]: string}
+export type PostProcess<I, O> = (params: I) => O
 
-export interface FetchOptionsRec<V> {
+/**
+ * Bound values to url placeholders or add query string
+ */
+export type SerializeParams = (url: string, params: StrDict) => string
+
+/**
+ * Input args for FetchOptions
+ *
+ * @example
+```js
+{
+    baseUrl: '/api',
+    headers: {
+        'Accept-Language': 'ru;q=0.8,en-US;q=0.6,en;q=0.4'
+    },
+    method: 'GET',
+    postProcess,
+    serializeParams
+}
+```
+ */
+export type FetchOptionsRec = {
+    /**
+     * `baseUrl` will be prepended to `url`.
+     *
+     * Supported placeholders like `:id`.
+     *
+     * @example https://some-server.org/
+     */
     baseUrl?: ?string;
-    url?: ?string;
-    params?: ?StrDict;
-    getQueryParams?: ?(params: ?Object) => string;
-    postProcess?: ?(response: Response) => V;
 
+    /**
+     * Relative server url.
+     *
+     * Supported placeholders like `:id`.
+     *
+     * @example /user/:id
+     */
+    url?: ?string;
+
+    /**
+     * Url parameters key-value dict.
+     *
+     * If exists url placeholder with key, this value replaces url placeholder.
+     * If no placeholder found - parameters adds as querystring.
+     *
+     * @example /user/:id/:some + {id: 1, some: 'test'} = /user/1?some=test
+     */
+    params?: ?StrDict;
+
+    /**
+     * Params serializer function.
+     *
+     * @example
+     ```js
+     //@flow
+     function serializeParams(url: string, params: ?Object): string {
+         const qStr: ?string = params ? querystring.stringify(params) : null
+         return url + (qStr ? ('?' + qStr) : '')
+     }
+     ```
+     */
+    serializeParams?: ?SerializeParams;
+
+    /**
+     * Composable postProcess function.
+     *
+     * @example
+     * ```js
+     * // @flow
+     *
+     * function postProcess<V>(response: Response): Promise<V> {
+     *     return response.json()
+     * }
+     *
+     * fetch(fullUrl, options).then(postProcess)
+     * ```
+     */
+    postProcess?: ?PostProcess;
+
+    /**
+     * Request body.
+     *
+     * Plain objects will be searilzed to json string.
+     */
     body?: ?(Blob | FormData | URLSearchParams | string | Object);
+
+    /**
+     * Below parameters from RequestOptions
+     *
+     * @see RequestOptions in https://github.com/facebook/flow/blob/master/lib/bom.js
+     */
     cache?: ?CacheType;
     credentials?: ?CredentialsType;
     headers?: ?HeadersInit;
@@ -21,6 +106,31 @@ export interface FetchOptionsRec<V> {
     redirect?: ?RedirectType;
     referrer?: ?string;
     referrerPolicy?: ?ReferrerPolicyType;
+}
+
+export interface IFetchOptions {
+    /**
+     * Request options.
+     */
+    options: RequestOptions;
+
+    /**
+     * Generated full url from baseUrl, url and params.
+     */
+    fullUrl: string;
+
+    /**
+     * Composable fetch.then postProcess function.
+     */
+    postProcess: <V>(response: Response) => Promise<V>;
+
+    /**
+     * Create new copy of FetchOptions with some options redefined.
+     *
+     * Headers will be merged with existing headers.
+     * postProcess will be composed with existing postProcess.
+     */
+    copy(rec: FetchOptionsRec): IFetchOptions;
 }
 
 function isFormData(val: Object): boolean {
@@ -35,7 +145,24 @@ function isURLSearchParams(val: Object): boolean {
     return typeof URLSearchParams !== 'undefined' && val instanceof URLSearchParams
 }
 
-export function mergeHeaders(...headerSets: any[]): HeadersInit {
+function composePostProcess(fn1: PostProcess, fn2: PostProcess): PostProcess {
+    return (params: any) => fn2(fn1(params))
+}
+
+/**
+ * Merge headers objects.
+ *
+ * Uses global Headers class if exists.
+ *
+ * @example
+ * ```js
+ * // @flow
+ * mergeHeaders({a: 1}, {a: 2, b: 3})
+ * // If Headers not supported, result is object: {a: 2, b: 3}
+ * // Else result is new Headers({a: 2, b: 3})
+ * ```
+ */
+export function mergeHeaders(...headerSets: (?HeadersInit)[]): HeadersInit {
     const isSupported: boolean = typeof Headers !== 'undefined'
     let result: HeadersInit = isSupported ? new Headers() : {}
 
@@ -46,7 +173,7 @@ export function mergeHeaders(...headerSets: any[]): HeadersInit {
         }
 
         if (isSupported && result instanceof Headers) {
-            if (headers instanceof Headers) {
+            if (headers instanceof Headers && Array.from) {
                 const entries: [string, string][] = Array.from(headers.entries())
                 for (let j = 0, k = entries.length; j < k; j++) {
                     const [name, v] = entries[j]
@@ -79,6 +206,9 @@ export class HttpError extends Err {
     }
 }
 
+/**
+ * Check response status value and throw error if it not in 200-300 range.
+ */
 export function checkStatus(response: Response): Response {
     if (response.status >= 200 && response.status < 300) {
         return response
@@ -86,19 +216,71 @@ export function checkStatus(response: Response): Response {
     throw new HttpError(response)
 }
 
-export class FetchOptions<V = Request> {
+function regExpMapString(replaceRegExp: RegExp, template: string, params: StrDict): {
+    str: string,
+    newParams: StrDict
+} {
+    const newParams: StrDict = {...params}
+    const str: string = template.replace(replaceRegExp, (v, k: string) => {
+        if (!params[k]) {
+            throw new Error(`No parameter provided to params: ${k}`)
+        }
+        delete newParams[k]
+        return params[k]
+    })
+
+    return {
+        str,
+        newParams
+    }
+}
+
+const DEFAULT_MAP_REGEXP = new RegExp(':([\\w]+)', 'g')
+
+/**
+ * Create params serializer.
+ */
+export function createSerializeParams(
+    stringify: (params: StrDict) => string,
+    placeholderRegExp: RegExp = DEFAULT_MAP_REGEXP
+): SerializeParams {
+    function serializeParams(url: string, params: StrDict): string {
+        const {str, newParams} = regExpMapString(placeholderRegExp, url, params)
+        const qStr: string = stringify(newParams)
+
+        return str + (qStr ? ('?' + qStr) : '')
+    }
+
+    return serializeParams
+}
+
+/**
+ * Fetch options builder
+ */
+export class FetchOptions {
     _baseUrl: string;
-    _getQueryParams: ?(params: ?Object) => string;
+    _serializeParams: ?SerializeParams;
     _url: string;
     _params: ?StrDict;
 
+    /**
+     * Request options.
+     */
     options: RequestOptions;
+
+    /**
+     * Generated full url from baseUrl, url and params.
+     */
     fullUrl: string;
-    postProcess: (response: Response) => Promise<V>;
+
+    /**
+     * Composable fetch.then postProcess function.
+     */
+    postProcess: <V>(response: Response) => Promise<V>;
 
     constructor(rec?: FetchOptionsRec = {}) {
         this._baseUrl = rec.baseUrl || '/'
-        this._getQueryParams = rec.getQueryParams
+        this._serializeParams = rec.serializeParams
         this.postProcess = rec.postProcess || pass
         this._params = rec.params || null
         this._url = rec.url || ''
@@ -119,8 +301,13 @@ export class FetchOptions<V = Request> {
                     headers = {}
                 }
                 if (typeof Headers !== 'undefined' && headers instanceof Headers) {
-                    headers.set('Content-Type', 'application/x-www-form-urlencoded;charset=utf-8')
-                } else {
+                    if (!headers.has('Content-type')) {
+                        headers.set(
+                            'Content-Type',
+                            'application/x-www-form-urlencoded;charset=utf-8'
+                        )
+                    }
+                } else if (!(headers: Object)['Content-Type']) {
                     (headers: Object)['Content-Type']
                         = 'application/x-www-form-urlencoded;charset=utf-8'
                 }
@@ -130,38 +317,51 @@ export class FetchOptions<V = Request> {
         this.options = {
             body: isPlainObject && body ? JSON.stringify(body) : body,
             headers,
-            cache: rec.cache,
-            credentials: rec.credentials,
-            integrity: rec.integrity,
-            method: rec.method,
-            mode: rec.mode,
-            redirect: rec.redirect,
-            referrer: rec.referrer,
-            referrerPolicy: rec.referrerPolicy
+            cache: rec.cache || null,
+            credentials: rec.credentials || null,
+            integrity: rec.integrity || null,
+            method: rec.method || null,
+            mode: rec.mode || null,
+            redirect: rec.redirect || null,
+            referrer: rec.referrer || null,
+            referrerPolicy: rec.referrerPolicy || null
         }
-        let paramStr: string = ''
-        if (rec.params) {
-            if (!this._getQueryParams) {
-                throw new TypeError('params exists, but no getQueryParams method provided')
+
+        if (this._params) {
+            if (!this._serializeParams) {
+                throw new TypeError('params exists, but no serializeParams method provided')
             }
-            paramStr = this._getQueryParams(rec.params)
+            this.fullUrl = this._serializeParams(this._baseUrl + this._url, this._params)
+        } else {
+            this.fullUrl = this._baseUrl + this._url
         }
-        this.fullUrl = this._baseUrl + this._url + paramStr
     }
 
+    /**
+     * Create new copy of FetchOptions with some options redefined.
+     *
+     * Headers will be merged with existing headers.
+     * postProcess will be composed with existing postProcess.
+     */
     copy(rec: FetchOptionsRec): FetchOptions {
         const headers: ?HeadersInit = this.options.headers
         return new FetchOptions({
             baseUrl: this._baseUrl,
-            getQueryParams: this._getQueryParams,
-            postProcess: this.postProcess,
+            serializeParams: this._serializeParams,
             url: this._url,
             ...this.options,
             ...rec,
+            postProcess: rec.postProcess
+                ? composePostProcess(this.postProcess, rec.postProcess)
+                : this.postProcess,
             params: this._params
                 ? {...this._params, ...rec.params || {}}
                 : rec.params,
-            headers: rec.headers ? mergeHeaders(headers, rec.headers) : headers
+            headers: rec.headers
+                ? mergeHeaders(headers, rec.headers)
+                : headers
         })
     }
 }
+
+if (0) ((new FetchOptions()): IFetchOptions) // eslint-disable-line

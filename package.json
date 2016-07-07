@@ -1,6 +1,6 @@
 {
   "name": "fetch-builder",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "RequestOptions builder for whatwg-fetch",
   "config": {
     "builddir": "."
@@ -12,7 +12,6 @@
     "preversion": "conf/resources/checkgit.sh && npm test && npm run build",
     "postversion": "git push && git push --tags",
     "precommit": "exit 0",
-    "examples": "babel-node ./examples/server.js",
     "clean": "rm -rf $npm_package_config_builddir/dist coverage",
     "build": "npm run clean && babel src --source-maps --out-dir $npm_package_config_builddir/dist",
     "build.dev": "babel src --source-maps --out-dir $npm_package_config_builddir/dist --watch",
@@ -30,10 +29,10 @@
     "url": "http://github.com/zerkalica/fetch-builder.git"
   },
   "keywords": [
-    "reactive",
-    "router",
-    "modular",
-    "state"
+    "whatwg-fetch",
+    "fetch",
+    "wrapper",
+    "builder"
   ],
   "files": [
     "*.map",
