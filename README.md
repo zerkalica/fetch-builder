@@ -20,7 +20,7 @@ import {
     Fetcher,
     createSerializeParams
 } from 'fetch-builder'
-import type {FetchOptionsRec} from 'fetch-builder'
+import type {FetchOptions} from 'fetch-builder'
 
 const baseFetcher = new Fetcher({
     baseUrl: '/api',
@@ -65,7 +65,7 @@ import {
     Fetcher,
     createSerializeParams
 } from 'fetch-builder'
-import type {FetchOptionsRec} from 'fetch-builder'
+import type {FetchOptions} from 'fetch-builder'
 
 const baseOptions = new Fetcher(({
     baseUrl: '/api',
@@ -76,7 +76,7 @@ const baseOptions = new Fetcher(({
     // throws HttpError if fetch status not in range 200-300
     postProcess: checkStatus,
     serializeParams: createSerializeParams(querystring.stringify)
-}: FetchOptionsRec))
+}: FetchOptions))
 
 console.log(baseOptions.options.headers)
 /*
@@ -156,7 +156,7 @@ userPost.fetch()
 }
 ```
  */
-export type FetchOptionsRec = {
+export type FetchOptions = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -260,13 +260,13 @@ export interface IFetchOptions {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptionsRec): IFetchOptions;
+    copy(rec: FetchOptions): IFetchOptions;
 
     /**
      * Fetch data.
      *
      * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptionsRec): Promise<V>;
+    fetch(rec?: ?FetchOptions): Promise<V>;
 }
 ```
