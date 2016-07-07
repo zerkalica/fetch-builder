@@ -129,7 +129,6 @@ headers: {
  * Input args for Fetcher
  *
  * @example
-```js
 {
     baseUrl: '/api',
     headers: {
@@ -139,7 +138,6 @@ headers: {
     postProcess,
     serializeParams
 }
-```
  */
 export type FetchOptions<Params: Object> = {
     /**
@@ -174,13 +172,10 @@ export type FetchOptions<Params: Object> = {
      * Params serializer function.
      *
      * @example
-     ```js
-     //@flow
      function serializeParams(url: string, params: ?Object): string {
          const qStr: ?string = params ? querystring.stringify(params) : null
          return url + (qStr ? ('?' + qStr) : '')
      }
-     ```
      */
     serializeParams?: ?SerializeParams;
 
@@ -188,15 +183,11 @@ export type FetchOptions<Params: Object> = {
      * Composable postProcess function.
      *
      * @example
-     * ```js
-     * // @flow
-     *
      * function postProcess<Result>(response: Response): Promise<Result> {
      *     return response.json()
      * }
      *
      * fetch(fullUrl, options).then(postProcess)
-     * ```
      */
     postProcess?: ?PostProcess;
 
