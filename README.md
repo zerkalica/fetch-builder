@@ -9,65 +9,19 @@ Features:
 * Headers merging
 * postProcess function compose
 
-
-## Simple fetch example
-
 ```js
 // @flow
 import 'isomorphic-fetch'
 import querystring from 'querystring'
 import {
-    Fetcher,
-    createSerializeParams
-} from 'fetch-builder'
-import type {FetchOptions} from 'fetch-builder'
-
-const baseFetcher = new Fetcher({
-    baseUrl: '/api',
-    headers: {
-        'Accept-Language': 'ru'
-    },
-    method: 'GET',
-    serializeParams: createSerializeParams(querystring.stringify)
-})
-
-const userPromise = baseFetcher.fetch({
-    url: '/user/1',
-})
-
-// Or create custom user fetcher with placeholder as id
-const userFetcher = baseFetcher.copy({
-    url: '/user/:id',
-})
-
-userFetcher.fetch({
-    params: {
-        id: 1
-    }
-})
-
-const sessionFetcher = baseFetcher.copy({
-    url: '/session'
-})
-
-const sessionPromise = sessionFetcher.fetch()
-```
-
-Builds custom options and use external fetch.
-
-```js
-// @flow
-import 'isomorphic-fetch'
-import querystring from 'querystring'
-import {
-    HttpError,
     checkStatus,
     Fetcher,
     createSerializeParams
 } from 'fetch-builder'
 import type {FetchOptions} from 'fetch-builder'
 
-const baseOptions = new Fetcher(({
+// Fetcher with some defaults
+const baseFetcher: Fetcher<any, any> = new Fetcher({
     baseUrl: '/api',
     headers: {
         'Accept-Language': 'ru'
@@ -76,64 +30,95 @@ const baseOptions = new Fetcher(({
     // throws HttpError if fetch status not in range 200-300
     postProcess: checkStatus,
     serializeParams: createSerializeParams(querystring.stringify)
-}: FetchOptions))
+})
 
-console.log(baseOptions.options.headers)
-/*
-{
-    'Accept-Language': 'ru'
-}
-*/
-
-const jsonOptions = baseOptions.copy({
-    // composed with baseOptions.postProcess
+// Get json from response
+const jsonFetcher: Fetcher<any, any> = baseFetcher.copy({
+    // composed with baseFetcher.postProcess
     postProcess: (response: Response) => response.json()
 })
 
-const authOptions = jsonOptions.copy({
+type User = {
+    id: string;
+    name: string;
+}
+
+// fetch user
+const userPromise: Promise<User> = jsonFetcher.fetch({
+    url: '/user/1',
+})
+// GET /api/user/1
+
+// Or create custom user fetcher with placeholder as id
+const userFetcher: Fetcher<User, {id: string, q: string}> = jsonFetcher.copy({
+    url: '/user/:id',
+})
+
+userFetcher.fetch({
+    params: {
+        id: '1',
+        q: '2'
+    }
+})
+// GET /api/user/1?q=2
+
+type Session = {
+    isLogged: boolean;
+}
+
+const sessionFetcher: Fetcher<Session, void> = jsonFetcher.copy({
+    url: '/session'
+})
+
+sessionFetcher.fetch()
+// GET /api/session
+
+const delSessionFetcher: Fetcher<Session, void> = sessionFetcher.copy({
+    method: 'DELETE'
+})
+
+delSessionFetcher.fetch()
+// DELETE /api/session
+
+
+// Set default credentials
+const authUserFetcher: Fetcher<User, {id: string}> = userFetcher.copy({
     headers: {
         'Auth': 'Token bla-bla'
     }
 })
 
-console.log(authOptions.options.headers)
+authUserFetcher.fetch({
+    params: {
+        id: '1'
+    }
+})
 /*
-{
+GET /api/user/1
+headers: {
     'Accept-Language': 'ru',
     'Auth': 'Token bla-bla'
 }
 */
 
-const baseUserApi = authOptions.copy({
-    url: '/user/:id'
-})
-
-const userGet = baseUserApi.copy({
-    params: {
-        id: '1',
-        some: 'test'
-    }
-})
-console.log(userGet.fullUrl)
-// /api/user/1?some=test
-
-// get user
-userGet.fetch()
-    .then((userData: Object) => {
-        console.log(userData)
-    })
-
-const userPost = baseUserApi.copy({
+authUserFetcher.fetch({
     method: 'POST',
-    params: {
+    body: {
         id: '1',
-        some: 'test'
+        name: 'test'
+    },
+    params: {
+        id: '1'
     }
 })
-userPost.fetch()
-    .then((userData: Object) => {
-        console.log(userData)
-    })
+/*
+POST /api/user/1
+body: {id: 1, name: 'test'}
+headers: {
+    'Accept-Language': 'ru',
+    'Auth': 'Token bla-bla'
+}
+*/
 ```
 
 ## Interface of Fetcher constructor
@@ -148,7 +133,7 @@ userPost.fetch()
 {
     baseUrl: '/api',
     headers: {
-        'Accept-Language': 'ru'
+        'Accept-Language': 'ru;q=0.8,en-US;q=0.6,en;q=0.4'
     },
     method: 'GET',
     postProcess,
@@ -156,7 +141,7 @@ userPost.fetch()
 }
 ```
  */
-export type FetchOptions = {
+export type FetchOptions<Params: Object> = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -183,7 +168,7 @@ export type FetchOptions = {
      *
      * @example /user/:id/:some + {id: 1, some: 'test'} = /user/1?some=test
      */
-    params?: ?StrDict;
+    params?: ?Params;
 
     /**
      * Params serializer function.
@@ -206,7 +191,7 @@ export type FetchOptions = {
      * ```js
      * // @flow
      *
-     * function postProcess<V>(response: Response): Promise<V> {
+     * function postProcess<Result>(response: Response): Promise<Result> {
      *     return response.json()
      * }
      *
@@ -238,7 +223,7 @@ export type FetchOptions = {
     referrerPolicy?: ?ReferrerPolicyType;
 }
 
-export interface IFetchOptions {
+export interface IFetcher<Result, Params: Object> {
     /**
      * Request options.
      */
@@ -252,7 +237,7 @@ export interface IFetchOptions {
     /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: <V>(response: Response) => Promise<V>;
+    postProcess: (response: Response) => Promise<Result>;
 
     /**
      * Create new copy of Fetcher with some options redefined.
@@ -260,13 +245,13 @@ export interface IFetchOptions {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptions): IFetchOptions;
+    copy<R, P: Object>(rec: FetchOptions<P>): IFetcher<R, P>;
 
     /**
      * Fetch data.
      *
      * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptions): Promise<V>;
+    fetch(rec?: ?FetchOptions<Params>): Promise<Result>;
 }
 ```
