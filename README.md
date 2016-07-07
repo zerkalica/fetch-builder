@@ -9,7 +9,51 @@ Features:
 * Headers merging
 * postProcess function compose
 
-## Example
+
+## Simple fetch example
+
+```js
+// @flow
+import 'isomorphic-fetch'
+import querystring from 'querystring'
+import {
+    Fetcher,
+    createSerializeParams
+} from 'fetch-builder'
+import type {FetchOptionsRec} from 'fetch-builder'
+
+const baseFetcher = new Fetcher({
+    baseUrl: '/api',
+    headers: {
+        'Accept-Language': 'ru'
+    },
+    method: 'GET',
+    serializeParams: createSerializeParams(querystring.stringify)
+})
+
+const userPromise = baseFetcher.fetch({
+    url: '/user/1',
+})
+
+// Or create custom user fetcher with placeholder as id
+const userFetcher = baseFetcher.copy({
+    url: '/user/:id',
+})
+
+userFetcher.fetch({
+    params: {
+        id: 1
+    }
+})
+
+const sessionFetcher = baseFetcher.copy({
+    url: '/session'
+})
+
+const sessionPromise = sessionFetcher.fetch()
+```
+
+Builds custom options and use external fetch.
 
 ```js
 // @flow
@@ -18,12 +62,12 @@ import querystring from 'querystring'
 import {
     HttpError,
     checkStatus,
-    FetchOptions,
+    Fetcher,
     createSerializeParams
 } from 'fetch-builder'
 import type {FetchOptionsRec} from 'fetch-builder'
 
-const baseOptions = new FetchOptions(({
+const baseOptions = new Fetcher(({
     baseUrl: '/api',
     headers: {
         'Accept-Language': 'ru'
@@ -60,49 +104,44 @@ console.log(authOptions.options.headers)
 }
 */
 
-const baseUserApiOptions = authOptions.copy({
+const baseUserApi = authOptions.copy({
     url: '/user/:id'
 })
-console.log(userApiOptions.fullUrl)
-// /api/user
 
-const userGetOptions = baseUserApiOptions.copy({
+const userGet = baseUserApi.copy({
     params: {
         id: '1',
         some: 'test'
     }
 })
-console.log(userGetOptions.fullUrl)
+console.log(userGet.fullUrl)
 // /api/user/1?some=test
 
-
 // get user
-fetch(userGetOptions.fullUrl, userGetOptions.options)
-    .then(userGetOptions.postProcess)
+userGet.fetch()
     .then((userData: Object) => {
         console.log(userData)
     })
 
-const userPostOptions = baseUserApiOptions.copy({
+const userPost = baseUserApi.copy({
     method: 'POST',
     params: {
         id: '1',
         some: 'test'
     }
 })
-fetch(userPostOptions.fullUrl, userPostOptions.options)
-    .then(userPostOptions.postProcess)
+userPost.fetch()
     .then((userData: Object) => {
         console.log(userData)
     })
 ```
 
-## Interface of FetchOptions constructor
+## Interface of Fetcher constructor
 
 ```js
 // @flow
 /**
- * Input args for FetchOptions
+ * Input args for Fetcher
  *
  * @example
 ```js
@@ -216,11 +255,18 @@ export interface IFetchOptions {
     postProcess: <V>(response: Response) => Promise<V>;
 
     /**
-     * Create new copy of FetchOptions with some options redefined.
+     * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
     copy(rec: FetchOptionsRec): IFetchOptions;
+
+    /**
+     * Fetch data.
+     *
+     * Need fetch polyfill.
+     */
+    fetch(rec?: ?FetchOptionsRec): Promise<V>;
 }
 ```

@@ -11,7 +11,7 @@ export type PostProcess<I, O> = (params: I) => O
 export type SerializeParams = (url: string, params: StrDict) => string
 
 /**
- * Input args for FetchOptions
+ * Input args for Fetcher
  *
  * @example
 ```js
@@ -108,7 +108,7 @@ export type FetchOptionsRec = {
     referrerPolicy?: ?ReferrerPolicyType;
 }
 
-export interface IFetchOptions {
+export interface IFetcher<V> {
     /**
      * Request options.
      */
@@ -122,15 +122,22 @@ export interface IFetchOptions {
     /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: <V>(response: Response) => Promise<V>;
+    postProcess: (response: Response) => Promise<V>;
 
     /**
-     * Create new copy of FetchOptions with some options redefined.
+     * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptionsRec): IFetchOptions;
+    copy(rec: FetchOptionsRec): IFetcher;
+
+    /**
+     * Fetch data.
+     *
+     * Need fetch polyfill.
+     */
+    fetch(rec?: ?FetchOptionsRec): Promise<V>;
 }
 
 function isFormData(val: Object): boolean {
@@ -257,7 +264,7 @@ export function createSerializeParams(
 /**
  * Fetch options builder
  */
-export class FetchOptions {
+export class Fetcher<V> {
     _baseUrl: string;
     _serializeParams: ?SerializeParams;
     _url: string;
@@ -276,7 +283,7 @@ export class FetchOptions {
     /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: <V>(response: Response) => Promise<V>;
+    postProcess: (response: Response) => Promise<V>;
 
     constructor(rec?: FetchOptionsRec = {}) {
         this._baseUrl = rec.baseUrl || '/'
@@ -337,15 +344,23 @@ export class FetchOptions {
         }
     }
 
+    fetch(params?: ?FetchOptionsRec = {}): Promise<V> {
+        const r: IFetcher<V> = params
+            ? this.copy(params)
+            : this
+
+        return fetch(r.fullUrl, r.options).then(r.postProcess)
+    }
+
     /**
-     * Create new copy of FetchOptions with some options redefined.
+     * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptionsRec): FetchOptions {
+    copy(rec: FetchOptionsRec): Fetcher<V> {
         const headers: ?HeadersInit = this.options.headers
-        return new FetchOptions({
+        return new this.constructor({
             baseUrl: this._baseUrl,
             serializeParams: this._serializeParams,
             url: this._url,
@@ -363,5 +378,4 @@ export class FetchOptions {
         })
     }
 }
-
-if (0) ((new FetchOptions()): IFetchOptions) // eslint-disable-line
+if (0) ((new Fetcher()): IFetcher) // eslint-disable-line

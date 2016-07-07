@@ -6,7 +6,7 @@ import querystring from 'querystring'
 import {spy} from 'sinon'
 
 import {
-    FetchOptions,
+    Fetcher,
     createSerializeParams
 } from '../index'
 import type {FetchOptionsRec} from '../index'
@@ -21,7 +21,7 @@ describe('FetchOptionsTest', () => {
                 },
                 method: 'GET'
             }
-            const baseOptions = new FetchOptions(options)
+            const baseOptions = new Fetcher(options)
 
             const result: RequestOptions = {
                 body: null,
@@ -48,7 +48,7 @@ describe('FetchOptionsTest', () => {
             const bOptions: FetchOptionsRec = {
                 method: 'POST'
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(a !== b)
             assert(b.options.method === 'POST')
@@ -67,7 +67,7 @@ describe('FetchOptionsTest', () => {
                     b: 'b1'
                 }
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
 
             assert.deepEqual(b.options.headers, {
@@ -86,7 +86,7 @@ describe('FetchOptionsTest', () => {
             const bOptions: FetchOptionsRec = {
                 postProcess: p2
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             const result = b.postProcess((1: any))
             assert(result === 4)
@@ -101,7 +101,7 @@ describe('FetchOptionsTest', () => {
             const bOptions: FetchOptionsRec = {
                 url: '/user'
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(b.fullUrl === '/api/user')
         })
@@ -110,7 +110,7 @@ describe('FetchOptionsTest', () => {
     describe('serializeParams related', () => {
         it('should throw error if no createSerializeParams provided and params is set', () => {
             assert.throws(() =>
-                new FetchOptions({
+                new Fetcher({
                     params: {
                         a: '1'
                     }
@@ -131,7 +131,7 @@ describe('FetchOptionsTest', () => {
                     id2: '2'
                 }
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(b.fullUrl === '/api/root/user/1/2')
         })
@@ -148,7 +148,7 @@ describe('FetchOptionsTest', () => {
                     id2: '2'
                 }
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(b.fullUrl === '/api/user?id=1&id2=2')
         })
@@ -168,7 +168,7 @@ describe('FetchOptionsTest', () => {
                     id2: '2'
                 }
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(b.fullUrl === '/api/user/1?id2=2')
         })
@@ -186,7 +186,7 @@ describe('FetchOptionsTest', () => {
                     id2: '2'
                 }
             }
-            const a = new FetchOptions(aOptions)
+            const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
             assert(b.fullUrl === '/api/user' + JSON.stringify(bOptions.params))
         })
