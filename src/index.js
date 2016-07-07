@@ -26,7 +26,7 @@ export type SerializeParams = (url: string, params: StrDict) => string
 }
 ```
  */
-export type FetchOptions = {
+export type FetchOptions<Params: Object> = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -53,7 +53,7 @@ export type FetchOptions = {
      *
      * @example /user/:id/:some + {id: 1, some: 'test'} = /user/1?some=test
      */
-    params?: ?StrDict;
+    params?: ?Params;
 
     /**
      * Params serializer function.
@@ -76,7 +76,7 @@ export type FetchOptions = {
      * ```js
      * // @flow
      *
-     * function postProcess<V>(response: Response): Promise<V> {
+     * function postProcess<Result>(response: Response): Promise<Result> {
      *     return response.json()
      * }
      *
@@ -108,7 +108,7 @@ export type FetchOptions = {
     referrerPolicy?: ?ReferrerPolicyType;
 }
 
-export interface IFetcher<V> {
+export interface IFetcher<Result, Params: Object> {
     /**
      * Request options.
      */
@@ -122,7 +122,7 @@ export interface IFetcher<V> {
     /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: (response: Response) => Promise<V>;
+    postProcess: (response: Response) => Promise<Result>;
 
     /**
      * Create new copy of Fetcher with some options redefined.
@@ -130,14 +130,14 @@ export interface IFetcher<V> {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptions): IFetcher;
+    copy<R, P: Object>(rec: FetchOptions<P>): IFetcher<R, P>;
 
     /**
      * Fetch data.
      *
      * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptions): Promise<V>;
+    fetch(rec?: ?FetchOptions<Params>): Promise<Result>;
 }
 
 function isFormData(val: Object): boolean {
@@ -264,11 +264,11 @@ export function createSerializeParams(
 /**
  * Fetch options builder
  */
-export class Fetcher<V> {
+export class Fetcher<Result, Params: Object> {
     _baseUrl: string;
     _serializeParams: ?SerializeParams;
     _url: string;
-    _params: ?StrDict;
+    _params: ?Params;
 
     /**
      * Request options.
@@ -283,9 +283,9 @@ export class Fetcher<V> {
     /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: (response: Response) => Promise<V>;
+    postProcess: (response: Response) => Promise<Result>;
 
-    constructor(rec?: FetchOptions = {}) {
+    constructor(rec?: FetchOptions<Params> = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._serializeParams = rec.serializeParams
         this.postProcess = rec.postProcess || pass
@@ -344,8 +344,8 @@ export class Fetcher<V> {
         }
     }
 
-    fetch(params?: ?FetchOptions = {}): Promise<V> {
-        const r: IFetcher<V> = params
+    fetch(params?: ?FetchOptions<Params> = {}): Promise<Result> {
+        const r: IFetcher<Result, Params> = params
             ? this.copy(params)
             : this
 
@@ -358,9 +358,9 @@ export class Fetcher<V> {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptions): Fetcher<V> {
+    copy<R: any, P: any>(rec: FetchOptions<any>): Fetcher<R, P> {
         const headers: ?HeadersInit = this.options.headers
-        return new this.constructor({
+        return (new this.constructor({
             baseUrl: this._baseUrl,
             serializeParams: this._serializeParams,
             url: this._url,
@@ -375,7 +375,7 @@ export class Fetcher<V> {
             headers: rec.headers
                 ? mergeHeaders(headers, rec.headers)
                 : headers
-        })
+        }): any)
     }
 }
 if (0) ((new Fetcher()): IFetcher) // eslint-disable-line
