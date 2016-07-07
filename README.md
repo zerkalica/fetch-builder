@@ -1,13 +1,16 @@
 # Fetch builder
 
+Lightweight and extremely customizable alternative to [superagent][superagent], [request][request], [axios][axios], [frisbee][frisbee].
+
 RequestOptions builder toolkit for [whatwg-fetch](https://github.github.io/fetch). Easily create or extend custom fetcher options.
 
 Features:
 
+* Immutable
 * Customizable and extendable options
 * Placeholders in urls, custom params serializer and placeholder mapper
 * Headers merging
-* postProcess function compose
+* Composable postProcess handler
 
 ```js
 // @flow

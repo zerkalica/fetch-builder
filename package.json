@@ -29,6 +29,7 @@
     "url": "http://github.com/zerkalica/fetch-builder.git"
   },
   "keywords": [
+    "immutable",
     "whatwg-fetch",
     "fetch",
     "wrapper",
