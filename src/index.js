@@ -4,7 +4,7 @@ import Err from 'es6-error'
 
 export type StrDict = {[id: string]: string}
 
-export interface FetchOptions<V> {
+export interface FetchOptionsRec<V> {
     baseUrl?: ?string;
     url?: ?string;
     params?: ?StrDict;
@@ -49,8 +49,8 @@ export function mergeHeaders(...headerSets: any[]): HeadersInit {
             if (headers instanceof Headers) {
                 const entries: [string, string][] = Array.from(headers.entries())
                 for (let j = 0, k = entries.length; j < k; j++) {
-                    const [k, v] = entries[j]
-                    result.append(k, v)
+                    const [name, v] = entries[j]
+                    result.append(name, v)
                 }
             } else {
                 const entries: string[] = Object.keys(headers)
@@ -86,7 +86,7 @@ export function checkStatus(response: Response): Response {
     throw new HttpError(response)
 }
 
-export class FetchBuilder<V = Request> {
+export class FetchOptions<V = Request> {
     _baseUrl: string;
     _getQueryParams: ?(params: ?Object) => string;
     _url: string;
@@ -96,7 +96,7 @@ export class FetchBuilder<V = Request> {
     fullUrl: string;
     postProcess: (response: Response) => Promise<V>;
 
-    constructor(rec?: FetchOptions = {}) {
+    constructor(rec?: FetchOptionsRec = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._getQueryParams = rec.getQueryParams
         this.postProcess = rec.postProcess || pass
@@ -121,7 +121,8 @@ export class FetchBuilder<V = Request> {
                 if (typeof Headers !== 'undefined' && headers instanceof Headers) {
                     headers.set('Content-Type', 'application/x-www-form-urlencoded;charset=utf-8')
                 } else {
-                    (headers: Object)['Content-Type'] = 'application/x-www-form-urlencoded;charset=utf-8'
+                    (headers: Object)['Content-Type']
+                        = 'application/x-www-form-urlencoded;charset=utf-8'
                 }
             }
         }
@@ -148,9 +149,9 @@ export class FetchBuilder<V = Request> {
         this.fullUrl = this._baseUrl + this._url + paramStr
     }
 
-    copy(rec: FetchOptions): FetchBuilder {
+    copy(rec: FetchOptionsRec): FetchOptions {
         const headers: ?HeadersInit = this.options.headers
-        return new FetchBuilder({
+        return new FetchOptions({
             baseUrl: this._baseUrl,
             getQueryParams: this._getQueryParams,
             postProcess: this.postProcess,

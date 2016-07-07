@@ -6,6 +6,7 @@ Immutable, RequestOptions builder for whatwg-fetch.
 // @flow
 import 'isomorphic-fetch'
 import {checkStatus, FetchOptions} from 'fetch-builder'
+import type {FetchOptionsRec} from 'fetch-builder'
 import querystring from 'querystring'
 
 function postProcess<V>(response: Response): Promise<V> {
@@ -18,14 +19,14 @@ function getQueryParams(params: ?Object): string {
     return qStr ? ('?' + qStr) : ''
 }
 
-const baseOptions = new FetchOptions({
+const baseOptions = new FetchOptions(({
     baseUrl: '/api',
     headers: {
         'Accept-Language': 'ru;q=0.8,en-US;q=0.6,en;q=0.4'
     },
     postProcess,
     getQueryParams
-})
+}: FetchOptionsRec))
 
 console.log(baseOptions.options.headers)
 /*
@@ -67,4 +68,28 @@ fetch(userApiOptions.fullUrl, userApiOptions.options)
     .then((userData: Object) => {
         console.log(userData)
     })
+```
+
+## Interface of constructor and copy
+
+```js
+// @flow
+export interface FetchOptionsRec<V> {
+    baseUrl?: ?string;
+    url?: ?string;
+    params?: ?StrDict;
+    getQueryParams?: ?(params: ?Object) => string;
+    postProcess?: ?(response: Response) => V;
+
+    body?: ?(Blob | FormData | URLSearchParams | string | Object);
+    cache?: ?CacheType;
+    credentials?: ?CredentialsType;
+    headers?: ?HeadersInit;
+    integrity?: ?string;
+    method?: ?MethodType;
+    mode?: ?ModeType;
+    redirect?: ?RedirectType;
+    referrer?: ?string;
+    referrerPolicy?: ?ReferrerPolicyType;
+}
 ```
