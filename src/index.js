@@ -26,7 +26,7 @@ export type SerializeParams = (url: string, params: StrDict) => string
 }
 ```
  */
-export type FetchOptionsRec = {
+export type FetchOptions = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -130,14 +130,14 @@ export interface IFetcher<V> {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptionsRec): IFetcher;
+    copy(rec: FetchOptions): IFetcher;
 
     /**
      * Fetch data.
      *
      * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptionsRec): Promise<V>;
+    fetch(rec?: ?FetchOptions): Promise<V>;
 }
 
 function isFormData(val: Object): boolean {
@@ -285,7 +285,7 @@ export class Fetcher<V> {
      */
     postProcess: (response: Response) => Promise<V>;
 
-    constructor(rec?: FetchOptionsRec = {}) {
+    constructor(rec?: FetchOptions = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._serializeParams = rec.serializeParams
         this.postProcess = rec.postProcess || pass
@@ -344,7 +344,7 @@ export class Fetcher<V> {
         }
     }
 
-    fetch(params?: ?FetchOptionsRec = {}): Promise<V> {
+    fetch(params?: ?FetchOptions = {}): Promise<V> {
         const r: IFetcher<V> = params
             ? this.copy(params)
             : this
@@ -358,7 +358,7 @@ export class Fetcher<V> {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy(rec: FetchOptionsRec): Fetcher<V> {
+    copy(rec: FetchOptions): Fetcher<V> {
         const headers: ?HeadersInit = this.options.headers
         return new this.constructor({
             baseUrl: this._baseUrl,

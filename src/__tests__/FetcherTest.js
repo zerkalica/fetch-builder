@@ -9,12 +9,12 @@ import {
     Fetcher,
     createSerializeParams
 } from '../index'
-import type {FetchOptionsRec} from '../index'
+import type {FetchOptions} from '../index'
 
-describe('FetchOptionsTest', () => {
+describe('FetcherTest', () => {
     describe('base', () => {
         it('should create RequestOptions and fullUrl', () => {
-            const options: FetchOptionsRec = {
+            const options: FetchOptions = {
                 baseUrl: '/api',
                 headers: {
                     'Accept-Language': 'ru'
@@ -42,10 +42,10 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should merge parameters in new instance', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 method: 'GET'
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 method: 'POST'
             }
             const a = new Fetcher(aOptions)
@@ -55,13 +55,13 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should merge headers', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 headers: {
                     a: 'a1',
                     c: 'c1'
                 }
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 headers: {
                     a: 'a2',
                     b: 'b1'
@@ -79,11 +79,11 @@ describe('FetchOptionsTest', () => {
 
         it('should compose postProcess', () => {
             const p1 = spy((v) => v + 1)
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 postProcess: p1
             }
             const p2 = spy((v) => v + 2)
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 postProcess: p2
             }
             const a = new Fetcher(aOptions)
@@ -95,10 +95,10 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should build fullUrl', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 baseUrl: '/api'
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 url: '/user'
             }
             const a = new Fetcher(aOptions)
@@ -119,11 +119,11 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should build fullUrl with template', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 baseUrl: '/api/:base',
                 serializeParams: createSerializeParams(querystring.stringify)
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 url: '/user/:id/:id2',
                 params: {
                     base: 'root',
@@ -137,11 +137,11 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should build fullUrl with query', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 baseUrl: '/api',
                 serializeParams: createSerializeParams(querystring.stringify)
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 url: '/user',
                 params: {
                     id: '1',
@@ -154,14 +154,14 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should build fullUrl with custom placeholder RegExp', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 baseUrl: '/api',
                 serializeParams: createSerializeParams(
                     querystring.stringify,
                     new RegExp('<([\\w]+)>', 'g')
                 )
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 url: '/user/<id>',
                 params: {
                     id: '1',
@@ -174,12 +174,12 @@ describe('FetchOptionsTest', () => {
         })
 
         it('should build fullUrl with custom serializeParams', () => {
-            const aOptions: FetchOptionsRec = {
+            const aOptions: FetchOptions = {
                 baseUrl: '/api',
                 serializeParams: (url: string, params: {[id: string]: string}) =>
                     url + JSON.stringify(params)
             }
-            const bOptions: FetchOptionsRec = {
+            const bOptions: FetchOptions = {
                 url: '/user',
                 params: {
                     id: '1',
