@@ -83,7 +83,7 @@ export type FetchOptions<Params: Object> = {
      * fetch(fullUrl, options).then(postProcess)
      * ```
      */
-    postProcess?: ?PostProcess;
+    postProcess?: ?PostProcess<*, *>;
 
     /**
      * Request body.
@@ -120,6 +120,11 @@ export interface IFetcher<Result, Params: Object> {
     fullUrl: string;
 
     /**
+     * Internal usage
+     */
+    _postProcessors: PostProcess<*, *>[];
+
+    /**
      * Composable fetch.then postProcess function.
      */
     postProcess: (response: Response) => Promise<Result>;
@@ -150,10 +155,6 @@ function isBlob(val: Object): boolean {
 
 function isURLSearchParams(val: Object): boolean {
     return typeof URLSearchParams !== 'undefined' && val instanceof URLSearchParams
-}
-
-function composePostProcess(fn1: PostProcess, fn2: PostProcess): PostProcess {
-    return (params: any) => fn2(fn1(params))
 }
 
 /**
@@ -198,10 +199,6 @@ export function mergeHeaders(...headerSets: (?HeadersInit)[]): HeadersInit {
     }
 
     return result
-}
-
-function pass(v: Response): any {
-    return v
 }
 
 export class HttpError extends Err {
@@ -281,14 +278,14 @@ export class Fetcher<Result, Params: Object> {
     fullUrl: string;
 
     /**
-     * Composable fetch.then postProcess function.
+     * Composable fetch.then postProcessors function.
      */
-    postProcess: (response: Response) => Promise<Result>;
+    _postProcessors: PostProcess<*, *>[];
 
     constructor(rec?: FetchOptions<Params> = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._serializeParams = rec.serializeParams
-        this.postProcess = rec.postProcess || pass
+        this._postProcessors = rec._postProcessors || (rec.postProcess ? [rec.postProcess] : [])
         this._params = rec.params || null
         this._url = rec.url || ''
 
@@ -345,18 +342,29 @@ export class Fetcher<Result, Params: Object> {
     }
 
     fetch(params?: ?FetchOptions<Params> = {}): Promise<Result> {
-        const r: IFetcher<Result, Params> = params
-            ? this.copy(params)
-            : this
+        if (params) {
+            return this.copy(params).fetch()
+        }
 
-        return fetch(r.fullUrl, r.options).then(r.postProcess)
+        return fetch(this.fullUrl, this.options)
+            .then(this.postProcess)
     }
+
+    postProcess: (req: Response) => Promise<Result> = (req: Response) => {
+        const pp = this._postProcessors
+        let result: Promise<*> = Promise.resolve(req)
+        for (let i = 0; i < pp.length; i++) {
+            result = result.then(pp[i])
+        }
+
+        return result
+    };
 
     /**
      * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
-     * postProcess will be composed with existing postProcess.
+     * postProcessors will be composed with existing postProcessors.
      */
     copy<R: any, P: any>(rec: FetchOptions<any>): Fetcher<R, P> {
         const headers: ?HeadersInit = this.options.headers
@@ -366,9 +374,9 @@ export class Fetcher<Result, Params: Object> {
             url: this._url,
             ...this.options,
             ...rec,
-            postProcess: rec.postProcess
-                ? composePostProcess(this.postProcess, rec.postProcess)
-                : this.postProcess,
+            _postProcessors: rec.postProcess
+                ? this._postProcessors.concat([rec.postProcess])
+                : this._postProcessors,
             params: this._params
                 ? {...this._params, ...rec.params || {}}
                 : rec.params,
@@ -378,4 +386,4 @@ export class Fetcher<Result, Params: Object> {
         }): any)
     }
 }
-if (0) ((new Fetcher()): IFetcher) // eslint-disable-line
+if (0) ((new Fetcher()): IFetcher<*, *>) // eslint-disable-line
