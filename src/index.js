@@ -85,6 +85,8 @@ export type FetchOptions<Params: Object> = {
      */
     postProcess?: ?PostProcess<*, *>;
 
+    cacheable?: ?boolean;
+
     /**
      * Request body.
      *
@@ -114,6 +116,8 @@ export interface IFetcher<Result, Params: Object> {
      */
     options: RequestOptions;
 
+    cacheable: boolean;
+
     /**
      * Generated full url from baseUrl, url and params.
      */
@@ -128,6 +132,11 @@ export interface IFetcher<Result, Params: Object> {
      * Composable fetch.then postProcess function.
      */
     postProcess: (response: Response) => Promise<Result>;
+
+    /**
+     * Reset cache
+     */
+    reset(): IFetcher<Result, Params>;
 
     /**
      * Create new copy of Fetcher with some options redefined.
@@ -277,10 +286,14 @@ export class Fetcher<Result, Params: Object> {
      */
     fullUrl: string;
 
+    cacheable: boolean;
+
     /**
      * Composable fetch.then postProcessors function.
      */
     _postProcessors: PostProcess<*, *>[];
+
+    _result: ?Promise<Result>;
 
     constructor(rec?: FetchOptions<Params> = {}) {
         this._baseUrl = rec.baseUrl || '/'
@@ -288,7 +301,8 @@ export class Fetcher<Result, Params: Object> {
         this._postProcessors = rec._postProcessors || (rec.postProcess ? [rec.postProcess] : [])
         this._params = rec.params || null
         this._url = rec.url || ''
-
+        this.cacheable = rec.cacheable || false
+        this._result = null
         let headers: ?HeadersInit = rec.headers || {}
 
         let isPlainObject: boolean = false
@@ -346,8 +360,28 @@ export class Fetcher<Result, Params: Object> {
             return this.copy(params).fetch()
         }
 
-        return fetch(this.fullUrl, this.options)
+        if (this._result) {
+            return this._result
+        }
+
+        const result: Promise<Result> = fetch(this.fullUrl, this.options)
             .then(this.postProcess)
+            .catch(this._resetCache)
+
+        if (this.cacheable) {
+            this._result = result
+        }
+        return result
+    }
+
+    _resetCache = (err: Error) => {
+        this.reset()
+        throw err
+    };
+
+    reset(): Fetcher<Result, Params> {
+        this._result = null
+        return this
     }
 
     postProcess: (req: Response) => Promise<Result> = (req: Response) => {
@@ -370,6 +404,7 @@ export class Fetcher<Result, Params: Object> {
         const headers: ?HeadersInit = this.options.headers
         return (new this.constructor({
             baseUrl: this._baseUrl,
+            cacheable: rec.cacheable,
             serializeParams: this._serializeParams,
             url: this._url,
             ...this.options,
