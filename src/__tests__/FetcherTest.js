@@ -90,11 +90,9 @@ describe('FetcherTest', () => {
             const b = a.copy(bOptions)
             const result: Promise<any> = b.postProcess((1: any))
 
-            return result.then((res: number) => {
-                assert(res === 4)
-                assert(p1.calledWith(1))
-                assert(p2.calledWith(2))
-            })
+            assert(result === 4)
+            assert(p1.calledWith(1))
+            assert(p2.calledWith(2))
         })
 
         it('should build fullUrl', () => {

@@ -38,7 +38,7 @@ const baseFetcher: Fetcher<any, any> = new Fetcher({
 // Get json from response
 const jsonFetcher: Fetcher<any, any> = baseFetcher.copy({
     // composed with baseFetcher.postProcess
-    postProcess: (response: Response) => response.json()
+    postProcess: (response: Promise<Response>) => response.then(r => r.json())
 })
 
 type User = {
@@ -186,8 +186,8 @@ export type FetchOptions<Params: Object> = {
      * Composable postProcess function.
      *
      * @example
-     * function postProcess<Result>(response: Response): Promise<Result> {
-     *     return response.json()
+     * function postProcess<Result>(response: Promise<Response>): Promise<Result> {
+     *     return response.then(r => r.json())
      * }
      *
      * fetch(fullUrl, options).then(postProcess)
@@ -229,9 +229,9 @@ export interface IFetcher<Result, Params: Object> {
     fullUrl: string;
 
     /**
-     * Composable fetch.then postProcess function.
+     * Composable fetch result postProcess function.
      */
-    postProcess: (response: Response) => Promise<Result>;
+    postProcess: (response: Promise<Response>) => Promise<Result>;
 
     /**
      * Create new copy of Fetcher with some options redefined.

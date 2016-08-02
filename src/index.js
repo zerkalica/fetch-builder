@@ -76,8 +76,8 @@ export type FetchOptions<Params: Object> = {
      * ```js
      * // @flow
      *
-     * function postProcess<Result>(response: Response): Promise<Result> {
-     *     return response.json()
+     * function postProcess<Result>(response: Promise<Response>): Promise<Result> {
+     *     return response.then(r => r.json)
      * }
      *
      * fetch(fullUrl, options).then(postProcess)
@@ -124,14 +124,9 @@ export interface IFetcher<Result, Params: Object> {
     fullUrl: string;
 
     /**
-     * Internal usage
-     */
-    _postProcessors: PostProcess<*, *>[];
-
-    /**
      * Composable fetch.then postProcess function.
      */
-    postProcess: (response: Response) => Promise<Result>;
+    postProcess: (response: Promise<Response>) => Promise<Result>;
 
     /**
      * Reset cache
@@ -267,6 +262,17 @@ export function createSerializeParams(
     return serializeParams
 }
 
+function compose<In1, Out1, Out2>(
+    f1: (arg: In1) => Out1,
+    f2: (arg: Out1) => Out2
+): (arg: In1) => Out2 {
+    return (arg: In1) => f2(f1(arg))
+}
+
+function pass<V>(arg: V): any {
+    return arg
+}
+
 /**
  * Fetch options builder
  */
@@ -288,17 +294,14 @@ export class Fetcher<Result, Params: Object> {
 
     cacheable: boolean;
 
-    /**
-     * Composable fetch.then postProcessors function.
-     */
-    _postProcessors: PostProcess<*, *>[];
+    postProcess: (req: Promise<Response>) => Promise<Result>;
 
     _result: ?Promise<Result>;
 
     constructor(rec?: FetchOptions<Params> = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._serializeParams = rec.serializeParams
-        this._postProcessors = rec._postProcessors || (rec.postProcess ? [rec.postProcess] : [])
+        this.postProcess = rec.postProcess || pass
         this._params = rec.params || null
         this._url = rec.url || ''
         this.cacheable = rec.cacheable || false
@@ -364,8 +367,7 @@ export class Fetcher<Result, Params: Object> {
             return this._result
         }
 
-        const result: Promise<Result> = fetch(this.fullUrl, this.options)
-            .then(this.postProcess)
+        const result: Promise<Result> = this.postProcess(fetch(this.fullUrl, this.options))
             .catch(this._resetCache)
 
         if (this.cacheable) {
@@ -384,16 +386,6 @@ export class Fetcher<Result, Params: Object> {
         return this
     }
 
-    postProcess: (req: Response) => Promise<Result> = (req: Response) => {
-        const pp = this._postProcessors
-        let result: Promise<*> = Promise.resolve(req)
-        for (let i = 0; i < pp.length; i++) {
-            result = result.then(pp[i])
-        }
-
-        return result
-    };
-
     /**
      * Create new copy of Fetcher with some options redefined.
      *
@@ -403,15 +395,15 @@ export class Fetcher<Result, Params: Object> {
     copy<R: any, P: any>(rec: FetchOptions<any>): Fetcher<R, P> {
         const headers: ?HeadersInit = this.options.headers
         return (new this.constructor({
-            baseUrl: this._baseUrl,
-            cacheable: rec.cacheable,
+            baseUrl: rec.baseUrl || this._baseUrl,
+            cacheable: rec.cacheable || this.cacheable || false,
             serializeParams: this._serializeParams,
             url: this._url,
             ...this.options,
             ...rec,
-            _postProcessors: rec.postProcess
-                ? this._postProcessors.concat([rec.postProcess])
-                : this._postProcessors,
+            postProcess: rec.postProcess
+                ? compose(this.postProcess, rec.postProcess)
+                : this.postProcess,
             params: this._params
                 ? {...this._params, ...rec.params || {}}
                 : rec.params,
