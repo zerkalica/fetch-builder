@@ -3,12 +3,15 @@
 import Err from 'es6-error'
 
 export type StrDict = {[id: string]: string}
-export type PostProcess<I, O> = (params: I) => O
 
 /**
  * Bound values to url placeholders or add query string
  */
 export type SerializeParams = (url: string, params: StrDict) => string
+
+export type PostProcess<I, O> = (params: I) => O
+export type Preprocess<Result, Params>
+    = (req: IFetcher<Result, Params>) => Promise<IFetcher<Result, Params>>
 
 /**
  * Input args for Fetcher
@@ -26,7 +29,7 @@ export type SerializeParams = (url: string, params: StrDict) => string
 }
 ```
  */
-export type FetchOptions<Params: Object> = {
+export type FetcherRec<Params: Object> = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -85,7 +88,26 @@ export type FetchOptions<Params: Object> = {
      */
     postProcess?: ?PostProcess<*, *>;
 
-    cacheable?: ?boolean;
+    /**
+     * Preprocess Request options before fetch
+     *
+     * @example
+     * ```js
+     * // @flow
+     *
+     * function preProcess<R, P>(opts: IFetcher<R, P>): Promise<IFetcher<R, P>> {
+     *     return Promise.resolve(opts)
+     * }
+     *
+     * preprocess(fetcher).then((f) => fetch(f.fullUrl, f.options).then(f.postProcess))
+     * ```
+     */
+    preProcess?: ?Preprocess<*, *>;
+
+    /**
+     * Whatwg fetch function, default to global fetch
+     */
+    fetchFn?: ?FetchFn;
 
     /**
      * Request body.
@@ -116,8 +138,6 @@ export interface IFetcher<Result, Params: Object> {
      */
     options: RequestOptions;
 
-    cacheable: boolean;
-
     /**
      * Generated full url from baseUrl, url and params.
      */
@@ -129,24 +149,18 @@ export interface IFetcher<Result, Params: Object> {
     postProcess: (response: Promise<Response>) => Promise<Result>;
 
     /**
-     * Reset cache
-     */
-    reset(): IFetcher<Result, Params>;
-
-    /**
      * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy<R, P: Object>(rec: FetchOptions<P>): IFetcher<R, P>;
+    copy<R, P: Object>(rec: FetcherRec<P>): IFetcher<R, P>;
 
     /**
-     * Fetch data.
+     * Fetch data
      *
-     * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptions<Params>): Promise<Result>;
+    fetch(rec?: FetcherRec<*>): Promise<Result>;
 }
 
 function isFormData(val: Object): boolean {
@@ -273,6 +287,100 @@ function pass<V>(arg: V): any {
     return arg
 }
 
+export type FetchFn = (url: string, options: RequestOptions) => Promise<Response>;
+
+/**
+ * Cacheable data loader
+ */
+export class Loader<Result> {
+    _result: ?Promise<Result>;
+    _fetcher: IFetcher<Result, {}>;
+
+    constructor(
+        fetcher: IFetcher<Result, {}>
+    ) {
+        this._result = null
+        this._fetcher = fetcher
+    }
+
+    _fetch: (
+        rec: IFetcher<Result, {}>
+    ) => Promise<Result> = (rec: IFetcher<Result, {}>) => rec.fetch();
+
+    _onError: (err: Error) => void = (err: Error) => {
+        this.reset()
+        throw err
+    };
+
+    fetch(params?: FetcherRec<*>): Promise<Result> {
+        let result: ?Promise<Result> = this._result
+        if (result) {
+            return result
+        }
+
+        result = this._fetcher.fetch(params)
+            .catch(this._onError)
+
+        this._result = result
+
+        return result
+    }
+
+    reset(): Loader<Result> {
+        this._result = null
+        return this
+    }
+}
+
+function defaultGetKey(rec: FetcherRec<*>): string {
+    const params: {[id: string]: string} = rec.params || {}
+    return Object.keys(params).sort().map((key: string) => `${key}:${params[key]}`).join('.')
+}
+
+export class Repository<Result> {
+    _fetcher: IFetcher<Result, *>;
+    _loaders: Map<string, Loader<Result>>;
+    _getKey: (params: FetcherRec<*>) => string;
+
+    constructor(
+        fetcher: IFetcher<Result, *>,
+        getKey?: ?(params: FetcherRec<*>) => string
+    ) {
+        this._loaders = new Map()
+        this._getKey = getKey || defaultGetKey
+        this._fetcher = fetcher
+    }
+
+    fetch(params: FetcherRec<*>): Promise<Result> {
+        const key: string = this._getKey(params)
+        let loader: ?Loader<Result> = this._loaders.get(key)
+        if (!loader) {
+            loader = new Loader(this._fetcher)
+            this._loaders.set(key, loader)
+        }
+
+        return loader.fetch(params)
+    }
+
+    _clearAll: (loader: Loader<Result>) => void = (loader: Loader<Result>) => {
+        loader.reset()
+    };
+
+    reset(params?: FetcherRec<*>): Repository<Result> {
+        if (!params) {
+            this._loaders.forEach(this._clearAll)
+            return this
+        }
+
+        const loader: ?Loader<Result> = this._loaders.get(this._getKey(params))
+        if (loader) {
+            loader.reset()
+        }
+
+        return this
+    }
+}
+
 /**
  * Fetch options builder
  */
@@ -281,6 +389,7 @@ export class Fetcher<Result, Params: Object> {
     _serializeParams: ?SerializeParams;
     _url: string;
     _params: ?Params;
+    _fetchFn: FetchFn;
 
     /**
      * Request options.
@@ -292,20 +401,18 @@ export class Fetcher<Result, Params: Object> {
      */
     fullUrl: string;
 
-    cacheable: boolean;
-
     postProcess: (req: Promise<Response>) => Promise<Result>;
 
-    _result: ?Promise<Result>;
+    preProcess: ?Preprocess<Result, Params>;
 
-    constructor(rec?: FetchOptions<Params> = {}) {
+    constructor(rec?: FetcherRec<Params> = {}) {
         this._baseUrl = rec.baseUrl || '/'
         this._serializeParams = rec.serializeParams
-        this.postProcess = rec.postProcess || pass
         this._params = rec.params || null
         this._url = rec.url || ''
-        this.cacheable = rec.cacheable || false
-        this._result = null
+        this.postProcess = rec.postProcess || pass
+        this._fetchFn = rec.fetchFn || (typeof fetch === 'undefined' ? pass : fetch)
+        this.preProcess = rec.preProcess || null
         let headers: ?HeadersInit = rec.headers || {}
 
         let isPlainObject: boolean = false
@@ -358,45 +465,16 @@ export class Fetcher<Result, Params: Object> {
         }
     }
 
-    fetch(params?: ?FetchOptions<Params> = {}): Promise<Result> {
-        if (params) {
-            return this.copy(params).fetch()
-        }
-
-        if (this._result) {
-            return this._result
-        }
-
-        const result: Promise<Result> = this.postProcess(fetch(this.fullUrl, this.options))
-            .catch(this._resetCache)
-
-        if (this.cacheable) {
-            this._result = result
-        }
-        return result
-    }
-
-    _resetCache = (err: Error) => {
-        this.reset()
-        throw err
-    };
-
-    reset(): Fetcher<Result, Params> {
-        this._result = null
-        return this
-    }
-
     /**
      * Create new copy of Fetcher with some options redefined.
      *
      * Headers will be merged with existing headers.
      * postProcessors will be composed with existing postProcessors.
      */
-    copy<R: any, P: any>(rec: FetchOptions<any>): Fetcher<R, P> {
+    copy<R, P: Object>(rec: FetcherRec<any>): IFetcher<R, P> {
         const headers: ?HeadersInit = this.options.headers
         return (new this.constructor({
             baseUrl: rec.baseUrl || this._baseUrl,
-            cacheable: rec.cacheable || this.cacheable || false,
             serializeParams: this._serializeParams,
             url: this._url,
             ...this.options,
@@ -412,5 +490,19 @@ export class Fetcher<Result, Params: Object> {
                 : headers
         }): any)
     }
+
+    _fetch: (f: IFetcher<Result, Params>) => Promise<Result> = (f: IFetcher<Result, Params>) =>
+        f.postProcess(this._fetchFn(f.fullUrl, f.options));
+
+    fetch(rec?: FetcherRec<*>): Promise<Result> {
+        const opts: IFetcher<Result, Params> = rec
+            ? this.copy(rec)
+            : this
+
+        return this.preProcess
+            ? this.preProcess(opts).then(this._fetch)
+            : this._fetch(opts)
+    }
 }
-if (0) ((new Fetcher()): IFetcher<*, *>) // eslint-disable-line
+
+if (0) ((new Fetcher(...(0: any))): IFetcher<*, *>) // eslint-disable-line

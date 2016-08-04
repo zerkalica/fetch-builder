@@ -12,16 +12,19 @@ Features:
 * Headers merging
 * Composable postProcess handler
 
+## Fetcher
+
 ```js
 // @flow
 import 'isomorphic-fetch'
 import querystring from 'querystring'
 import {
+    Loader,
     checkStatus,
     Fetcher,
     createSerializeParams
 } from 'fetch-builder'
-import type {FetchOptions} from 'fetch-builder'
+import type {FetcherRec} from 'fetch-builder'
 
 // Fetcher with some defaults
 const baseFetcher: Fetcher<any, any> = new Fetcher({
@@ -124,25 +127,99 @@ headers: {
 */
 ```
 
-## Interface of Fetcher constructor
+## Loader
+
+Loader is cached wrapper around Fetcher.
 
 ```js
 // @flow
-/**
- * Input args for Fetcher
- *
- * @example
-{
-    baseUrl: '/api',
-    headers: {
-        'Accept-Language': 'ru;q=0.8,en-US;q=0.6,en;q=0.4'
-    },
-    method: 'GET',
-    postProcess,
-    serializeParams
+
+import {Loader} from 'fetch-builder'
+
+// ...
+const loader = new Loader(sessionFetcher)
+
+loader.fetch().then(...)
+
+// Calls Fetcher once, fetch result is cached:
+loader.fetch().then(...)
+
+// Reset loader
+loader.reset()
+```
+
+## Repository
+
+Repository caches Loaders by key. Key - is string, builded from sorted FetcherRec.params values.
+
+```js
+// @flow
+
+import {Repository} from 'fetch-builder'
+
+// ...
+const repository = new Repository(authUserFetcher)
+
+// New fetch:
+repository.fetch({
+    params: {
+        id: '1'
+    }
+}).then(...)
+
+// params.id is changed: new fetch:
+repository.fetch({
+    params: {
+        id: '2'
+    }
+}).then(...)
+
+// From cache:
+repository.fetch({
+    params: {
+        id: '1'
+    }
+}).then(...)
+
+// From cache:
+repository.fetch({
+    params: {
+        id: '2'
+    }
+}).then(...)
+
+// Reset user 1:
+repository.reset({
+    params: {
+        id: '1'
+    }
+})
+
+// Reset all
+repository.reset()
+```
+
+Custom cache key getter:
+
+```js
+// @flow
+function myGetKey(rec: FetcherRec<*>): string {
+    const params: {[id: string]: string} = rec.params || {}
+    return Object.keys(params).sort().map((key: string) => params[key]).join('.')
 }
- */
-export type FetchOptions<Params: Object> = {
+
+const repository = new Repository(authUserFetcher, myGetkey)
+```
+
+## Interface of Fetcher constructor
+
+```js
+
+export type PostProcess<I, O> = (params: I) => O
+export type Preprocess<Result, Params>
+    = (req: IFetcher<Result, Params>) => Promise<IFetcher<Result, Params>>
+
+export type FetcherRec<Params: Object> = {
     /**
      * `baseUrl` will be prepended to `url`.
      *
@@ -175,10 +252,13 @@ export type FetchOptions<Params: Object> = {
      * Params serializer function.
      *
      * @example
+     ```js
+     //@flow
      function serializeParams(url: string, params: ?Object): string {
          const qStr: ?string = params ? querystring.stringify(params) : null
          return url + (qStr ? ('?' + qStr) : '')
      }
+     ```
      */
     serializeParams?: ?SerializeParams;
 
@@ -186,13 +266,38 @@ export type FetchOptions<Params: Object> = {
      * Composable postProcess function.
      *
      * @example
+     * ```js
+     * // @flow
+     *
      * function postProcess<Result>(response: Promise<Response>): Promise<Result> {
-     *     return response.then(r => r.json())
+     *     return response.then(r => r.json)
      * }
      *
      * fetch(fullUrl, options).then(postProcess)
+     * ```
      */
-    postProcess?: ?PostProcess;
+    postProcess?: ?PostProcess<*, *>;
+
+    /**
+     * Preprocess Request options before fetch
+     *
+     * @example
+     * ```js
+     * // @flow
+     *
+     * function preProcess<R, P>(opts: IFetcher<R, P>): Promise<IFetcher<R, P>> {
+     *     return Promise.resolve(opts)
+     * }
+     *
+     * preprocess(fetcher).then((f) => fetch(f.fullUrl, f.options).then(f.postProcess))
+     * ```
+     */
+    preProcess?: ?Preprocess<*, *>;
+
+    /**
+     * Whatwg fetch function, default to global fetch
+     */
+    fetchFn?: ?FetchFn;
 
     /**
      * Request body.
@@ -229,7 +334,7 @@ export interface IFetcher<Result, Params: Object> {
     fullUrl: string;
 
     /**
-     * Composable fetch result postProcess function.
+     * Composable fetch.then postProcess function.
      */
     postProcess: (response: Promise<Response>) => Promise<Result>;
 
@@ -239,14 +344,13 @@ export interface IFetcher<Result, Params: Object> {
      * Headers will be merged with existing headers.
      * postProcess will be composed with existing postProcess.
      */
-    copy<R, P: Object>(rec: FetchOptions<P>): IFetcher<R, P>;
+    copy<R, P: Object>(rec: FetcherRec<P>): IFetcher<R, P>;
 
     /**
-     * Fetch data.
+     * Fetch data
      *
-     * Need fetch polyfill.
      */
-    fetch(rec?: ?FetchOptions<Params>): Promise<Result>;
+    fetch(rec?: FetcherRec<*>): Promise<Result>;
 }
 ```
 
