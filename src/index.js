@@ -381,6 +381,10 @@ export class Repository<Result> {
     }
 }
 
+function callFetch<Result, Params: Object>(f: IFetcher<Result, Params>): Promise<Result> {
+    return f.fetch()
+}
+
 /**
  * Fetch options builder
  */
@@ -491,8 +495,10 @@ export class Fetcher<Result, Params: Object> {
         }): any)
     }
 
-    _fetch: (f: IFetcher<Result, Params>) => Promise<Result> = (f: IFetcher<Result, Params>) =>
-        f.postProcess(this._fetchFn(f.fullUrl, f.options));
+    _fetch(f: IFetcher<Result, Params>): Promise<Result> {
+        const result = this._fetchFn.call(null, f.fullUrl, f.options)
+        return f.postProcess(result)
+    }
 
     fetch(rec?: FetcherRec<*>): Promise<Result> {
         const opts: IFetcher<Result, Params> = rec
@@ -500,7 +506,7 @@ export class Fetcher<Result, Params: Object> {
             : this
 
         return this.preProcess
-            ? this.preProcess(opts).then(this._fetch)
+            ? this.preProcess(opts).then(callFetch)
             : this._fetch(opts)
     }
 }
