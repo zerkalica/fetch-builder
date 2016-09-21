@@ -463,7 +463,7 @@ export class Fetcher<Result, Params: Object> {
             if (!this._serializeParams) {
                 throw new TypeError('params exists, but no serializeParams method provided')
             }
-            this.fullUrl = this._serializeParams(this._baseUrl + this._url, this._params)
+            this.fullUrl = this._baseUrl + this._serializeParams(this._url, this._params)
         } else {
             this.fullUrl = this._baseUrl + this._url
         }

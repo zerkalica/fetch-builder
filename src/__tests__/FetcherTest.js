@@ -121,20 +121,19 @@ describe('FetcherTest', () => {
 
         it('should build fullUrl with template', () => {
             const aOptions: FetcherRec<*> = {
-                baseUrl: '/api/:base',
+                baseUrl: '/api',
                 serializeParams: createSerializeParams(querystring.stringify)
             }
             const bOptions: FetcherRec<*> = {
                 url: '/user/:id/:id2',
                 params: {
-                    base: 'root',
                     id: '1',
                     id2: '2'
                 }
             }
             const a = new Fetcher(aOptions)
             const b = a.copy(bOptions)
-            assert(b.fullUrl === '/api/root/user/1/2')
+            assert(b.fullUrl === '/api/user/1/2')
         })
 
         it('should build fullUrl with query', () => {
