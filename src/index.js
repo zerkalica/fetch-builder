@@ -293,37 +293,34 @@ export type FetchFn = (url: string, options: RequestOptions) => Promise<Response
  * Cacheable data loader
  */
 export class Loader<Result> {
-    _result: ?Promise<Result>;
-    _fetcher: IFetcher<Result, {}>;
+    _result: ?Promise<Result> = null
+    _fetcher: IFetcher<Result, *>
 
-    constructor(
-        fetcher: IFetcher<Result, {}>
-    ) {
-        this._result = null
+    constructor(fetcher: IFetcher<Result, *>) {
         this._fetcher = fetcher
     }
-
-    _fetch: (
-        rec: IFetcher<Result, {}>
-    ) => Promise<Result> = (rec: IFetcher<Result, {}>) => rec.fetch();
 
     _onError: (err: Error) => void = (err: Error) => {
         this.reset()
         throw err
-    };
+    }
 
-    fetch(params?: FetcherRec<*>): Promise<Result> {
+    fetch(): Promise<Result> {
         let result: ?Promise<Result> = this._result
         if (result) {
             return result
         }
 
-        result = this._fetcher.fetch(params)
+        result = this._fetch(this._fetcher)
             .catch(this._onError)
 
         this._result = result
 
         return result
+    }
+
+    _fetch(fetcher: IFetcher<Result, *>): Promise<Result> { // eslint-disable-line
+        return fetcher.fetch()
     }
 
     reset(): Loader<Result> {
@@ -337,50 +334,6 @@ function defaultGetKey(rec: FetcherRec<*>): string {
     return Object.keys(params).sort().map((key: string) => `${key}:${params[key]}`).join('.')
 }
 
-export class Repository<Result> {
-    _fetcher: IFetcher<Result, *>;
-    _loaders: Map<string, Loader<Result>>;
-    _getKey: (params: FetcherRec<*>) => string;
-
-    constructor(
-        fetcher: IFetcher<Result, *>,
-        getKey?: ?(params: FetcherRec<*>) => string
-    ) {
-        this._loaders = new Map()
-        this._getKey = getKey || defaultGetKey
-        this._fetcher = fetcher
-    }
-
-    fetch(params: FetcherRec<*>): Promise<Result> {
-        const key: string = this._getKey(params)
-        let loader: ?Loader<Result> = this._loaders.get(key)
-        if (!loader) {
-            loader = new Loader(this._fetcher)
-            this._loaders.set(key, loader)
-        }
-
-        return loader.fetch(params)
-    }
-
-    _clearAll: (loader: Loader<Result>) => void = (loader: Loader<Result>) => {
-        loader.reset()
-    };
-
-    reset(params?: FetcherRec<*>): Repository<Result> {
-        if (!params) {
-            this._loaders.forEach(this._clearAll)
-            return this
-        }
-
-        const loader: ?Loader<Result> = this._loaders.get(this._getKey(params))
-        if (loader) {
-            loader.reset()
-        }
-
-        return this
-    }
-}
-
 function callFetch<Result, Params: Object>(f: IFetcher<Result, Params>): Promise<Result> {
     return f.fetch()
 }
@@ -389,23 +342,23 @@ function callFetch<Result, Params: Object>(f: IFetcher<Result, Params>): Promise
  * Fetch options builder
  */
 export class Fetcher<Result, Params: Object> {
-    _baseUrl: string;
-    _serializeParams: ?SerializeParams;
-    _url: string;
-    _params: ?Params;
-    _fetchFn: FetchFn;
+    _baseUrl: string
+    _serializeParams: ?SerializeParams
+    _url: string
+    _params: ?Params
+    _fetchFn: FetchFn
 
     /**
      * Request options.
      */
-    options: RequestOptions;
+    options: RequestOptions
 
     /**
      * Generated full url from baseUrl, url and params.
      */
-    fullUrl: string;
+    fullUrl: string
 
-    postProcess: (req: Promise<Response>) => Promise<Result>;
+    postProcess: (req: Promise<Response>) => Promise<Result>
 
     preProcess: ?Preprocess<Result, Params>;
 
@@ -512,3 +465,44 @@ export class Fetcher<Result, Params: Object> {
 }
 
 if (0) ((new Fetcher(...(0: any))): IFetcher<*, *>) // eslint-disable-line
+
+export class Repository<Result> {
+    _loaders: Map<string, Loader<Result>>;
+    _getKey: (params: FetcherRec<*>) => string;
+
+    constructor(
+        getKey?: ?(params: FetcherRec<*>) => string
+    ) {
+        this._loaders = new Map()
+        this._getKey = getKey || defaultGetKey
+    }
+
+    fetch(params: FetcherRec<*>): Promise<Result> {
+        const key: string = this._getKey(params)
+        let loader: ?Loader<Result> = this._loaders.get(key)
+        if (!loader) {
+            loader = new Loader(new Fetcher(params))
+            this._loaders.set(key, loader)
+        }
+
+        return loader.fetch()
+    }
+
+    _clearAll: (loader: Loader<Result>) => void = (loader: Loader<Result>) => {
+        loader.reset()
+    };
+
+    reset(params?: FetcherRec<*>): Repository<Result> {
+        if (!params) {
+            this._loaders.forEach(this._clearAll)
+            return this
+        }
+
+        const loader: ?Loader<Result> = this._loaders.get(this._getKey(params))
+        if (loader) {
+            loader.reset()
+        }
+
+        return this
+    }
+}
