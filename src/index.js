@@ -35,7 +35,7 @@ export type FetcherRec<Params: Object> = {
      *
      * Supported placeholders like `:id`.
      *
-     * @example https://some-server.org/
+     * @example https://some-serckkver.org/
      */
     baseUrl?: ?string;
 
