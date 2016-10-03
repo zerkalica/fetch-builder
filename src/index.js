@@ -294,10 +294,10 @@ export type FetchFn = (url: string, options: RequestOptions) => Promise<Response
  */
 export class Loader<Result> {
     _result: ?Promise<Result> = null
-    _fetcher: IFetcher<Result, *>
+    _fetcher: ?IFetcher<Result, *>
 
-    constructor(fetcher: IFetcher<Result, *>) {
-        this._fetcher = fetcher
+    constructor(fetcher?: IFetcher<Result, *>) {
+        this._fetcher = fetcher || null
     }
 
     _onError: (err: Error) => void = (err: Error) => {
@@ -319,7 +319,11 @@ export class Loader<Result> {
         return result
     }
 
-    _fetch(fetcher: IFetcher<Result, *>): Promise<Result> { // eslint-disable-line
+    _fetch(fetcher?: ?IFetcher<Result, *>): Promise<Result> { // eslint-disable-line
+        if (!fetcher) {
+            throw new Error('Fetcher is not initialized')
+        }
+
         return fetcher.fetch()
     }
 
