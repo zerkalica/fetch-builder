@@ -1,5 +1,5 @@
 /* @flow */
-
+/* eslint-env browser */
 import Err from 'es6-error'
 
 export type StrDict = {[id: string]: string}
@@ -195,7 +195,7 @@ export function mergeHeaders(...headerSets: (?HeadersInit)[]): HeadersInit {
     for (let i = 0, l = headerSets.length; i < l; i++) {
         const headers: ?HeadersInit = headerSets[i]
         if (!headers || typeof headers !== 'object') {
-            continue
+            continue // eslint-disable-line
         }
 
         if (isSupported && result instanceof Headers) {
