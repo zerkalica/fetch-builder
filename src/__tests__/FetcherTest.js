@@ -28,14 +28,7 @@ describe('FetcherTest', () => {
                 headers: {
                     'Accept-Language': 'ru'
                 },
-                cache: null,
-                credentials: null,
-                integrity: null,
-                method: 'GET',
-                mode: null,
-                redirect: null,
-                referrer: null,
-                referrerPolicy: null
+                method: 'GET'
             }
             assert(baseOptions.fullUrl === options.baseUrl)
             assert.deepEqual(baseOptions.options, result)

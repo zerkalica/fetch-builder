@@ -403,18 +403,20 @@ export class Fetcher<Result, Params: Object> {
             }
         }
 
-        this.options = {
+        const options: RequestOptions = {
             body: isPlainObject && body ? JSON.stringify(body) : body,
-            headers,
-            cache: rec.cache || null,
-            credentials: rec.credentials || null,
-            integrity: rec.integrity || null,
-            method: rec.method || null,
-            mode: rec.mode || null,
-            redirect: rec.redirect || null,
-            referrer: rec.referrer || null,
-            referrerPolicy: rec.referrerPolicy || null
+            headers
         }
+        if (rec.cache) options.cache = rec.cache
+        if (rec.credentials) options.credentials = rec.credentials
+        if (rec.integrity) options.integrity = rec.integrity
+        if (rec.method) options.method = rec.method
+        if (rec.mode) options.mode = rec.mode
+        if (rec.redirect) options.redirect = rec.redirect
+        if (rec.referrer) options.referrer = rec.referrer
+        if (rec.referrerPolicy) options.referrerPolicy = rec.referrerPolicy
+
+        this.options = options
 
         if (this._params) {
             if (!this._serializeParams) {
