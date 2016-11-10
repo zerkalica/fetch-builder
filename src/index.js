@@ -167,6 +167,7 @@ function isFormData(val: Object): boolean {
     return (typeof FormData !== 'undefined') && (val instanceof FormData)
 }
 
+const toString = Object.prototype.toString
 function isBlob(val: Object): boolean {
     return toString.call(val) === '[object Blob]'
 }
