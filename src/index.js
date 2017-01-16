@@ -378,7 +378,7 @@ export class Fetcher<Result, Params: Object> {
         let headers: ?HeadersInit = rec.headers || {}
 
         let isPlainObject: boolean = false
-        const body = rec.body || null
+        const body = rec.body
         if (body && typeof body === 'object') {
             const isUrlSearchParams: boolean = isURLSearchParams(body)
             isPlainObject =
