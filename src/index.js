@@ -385,21 +385,20 @@ export class Fetcher<Result, Params: Object> {
                 !isFormData(body)
                 && !isBlob(body)
                 && !isUrlSearchParams
-
-            if (isUrlSearchParams) {
+            if (isUrlSearchParams || isPlainObject) {
                 if (!headers) {
                     headers = {}
                 }
+                const ctxType: string = isUrlSearchParams
+                    ? 'application/x-www-form-urlencoded;charset=utf-8'
+                    : 'application/json'
+
                 if (typeof Headers !== 'undefined' && headers instanceof Headers) {
-                    if (!headers.has('Content-type')) {
-                        headers.set(
-                            'Content-Type',
-                            'application/x-www-form-urlencoded;charset=utf-8'
-                        )
+                    if (!headers.has('Content-Type')) {
+                        headers.set('Content-Type', ctxType)
                     }
                 } else if (!(headers: Object)['Content-Type']) {
-                    (headers: Object)['Content-Type']
-                        = 'application/x-www-form-urlencoded;charset=utf-8'
+                    (headers: Object)['Content-Type'] = ctxType
                 }
             }
         }
