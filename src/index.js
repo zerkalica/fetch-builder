@@ -341,10 +341,6 @@ function defaultGetKey(rec: FetcherRec<*>): string {
     return Object.keys(params).sort().map((key: string) => `${key}:${params[key]}`).join('.')
 }
 
-function callFetch<Result, Params: Object>(f: IFetcher<Result, Params>): Promise<Result> {
-    return f.fetch()
-}
-
 /**
  * Fetch options builder
  */
@@ -458,8 +454,7 @@ export class Fetcher<Result, Params: Object> {
     }
 
     _fetch(f: IFetcher<Result, Params>): Promise<Result> {
-        const result = this._fetchFn.call(null, f.fullUrl, f.options)
-        return f.postProcess(result)
+        return f.postProcess(this._fetchFn.call(null, f.fullUrl, f.options))
     }
 
     fetch(rec?: FetcherRec<*>): Promise<Result> {
@@ -468,7 +463,7 @@ export class Fetcher<Result, Params: Object> {
             : this
 
         return this.preProcess
-            ? this.preProcess(opts).then(callFetch)
+            ? this.preProcess(opts).then((f: IFetcher<Result, Params>) => this._fetch(f))
             : this._fetch(opts)
     }
 }
