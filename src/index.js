@@ -148,6 +148,8 @@ export interface IFetcher<Result, Params: Object> {
      */
     postProcess: (response: Promise<Response>) => Promise<Result>;
 
+    // preProcess: ?Preprocess<*, *>;
+
     /**
      * Create new copy of Fetcher with some options redefined.
      *
@@ -442,6 +444,7 @@ export class Fetcher<Result, Params: Object> {
             url: this._url,
             ...this.options,
             ...rec,
+            preProcess: rec.preProcess || this.preProcess,
             postProcess: rec.postProcess
                 ? compose(this.postProcess, rec.postProcess)
                 : this.postProcess,
