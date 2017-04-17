@@ -71,11 +71,11 @@ describe('FetcherTest', () => {
         })
 
         it('should compose postProcess', () => {
-            const p1 = spy((v) => v + 1)
+            const p1 = spy((v: number) => v + 1)
             const aOptions: FetcherRec<*> = {
                 postProcess: p1
             }
-            const p2 = spy((v) => v + 2)
+            const p2 = spy((v: number) => v + 2)
             const bOptions: FetcherRec<*> = {
                 postProcess: p2
             }

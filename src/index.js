@@ -49,6 +49,11 @@ export type FetcherRec<Params: Object> = {
     url?: ?string;
 
     /**
+     * If true - use Header.set instead of Header.append, while mergin
+     */
+    setHeaders?: boolean;
+
+    /**
      * Url parameters key-value dict.
      *
      * If exists url placeholder with key, this value replaces url placeholder.
@@ -132,7 +137,7 @@ export type FetcherRec<Params: Object> = {
     referrerPolicy?: ?ReferrerPolicyType;
 }
 
-export interface IFetcher<Result, Params: Object> {
+export interface IFetcher<Result, Params: Object> { // eslint-disable-line
     /**
      * Request options.
      */
@@ -191,7 +196,7 @@ function isURLSearchParams(val: Object): boolean {
  * // Else result is new Headers({a: 2, b: 3})
  * ```
  */
-export function mergeHeaders(...headerSets: (?HeadersInit)[]): HeadersInit {
+function mergeHeaders(setHeaders: boolean, ...headerSets: (?HeadersInit)[]): HeadersInit {
     const isSupported: boolean = typeof Headers !== 'undefined'
     let result: HeadersInit = isSupported ? new Headers() : {}
 
@@ -206,12 +211,20 @@ export function mergeHeaders(...headerSets: (?HeadersInit)[]): HeadersInit {
                 const entries: [string, string][] = Array.from(headers.entries())
                 for (let j = 0, k = entries.length; j < k; j++) {
                     const [name, v] = entries[j]
-                    result.append(name, v)
+                    if (setHeaders) {
+                        result.set(name, v)
+                    } else {
+                        result.append(name, v)
+                    }
                 }
             } else {
                 const entries: string[] = Object.keys(headers)
                 for (let j = 0, k = entries.length; j < k; j++) {
-                    result.append(entries[j], headers[entries[j]])
+                    if (setHeaders) {
+                        result.set(entries[j], headers[entries[j]])
+                    } else {
+                        result.append(entries[j], headers[entries[j]])
+                    }
                 }
             }
         } else {
@@ -246,7 +259,7 @@ function regExpMapString(replaceRegExp: RegExp, template: string, params: StrDic
     newParams: StrDict
 } {
     const newParams: StrDict = {...params}
-    const str: string = template.replace(replaceRegExp, (v, k: string) => {
+    const str: string = template.replace(replaceRegExp, (_v: any, k: string) => {
         if (!params[k]) {
             throw new Error(`No parameter provided to params: ${k}`)
         }
@@ -290,7 +303,7 @@ function pass<V>(arg: V): any {
     return arg
 }
 
-export type FetchFn = (url: string, options: RequestOptions) => Promise<Response>;
+export type FetchFn = (url: string, options: RequestOptions) => Promise<Response>
 
 /**
  * Cacheable data loader
@@ -350,6 +363,7 @@ export class Fetcher<Result, Params: Object> {
     _url: string
     _params: ?Params
     _fetchFn: FetchFn
+    _setHeaders: boolean
 
     /**
      * Request options.
@@ -373,7 +387,8 @@ export class Fetcher<Result, Params: Object> {
         this.postProcess = rec.postProcess || pass
         this._fetchFn = rec.fetchFn || (typeof fetch === 'undefined' ? pass : fetch)
         this.preProcess = rec.preProcess || null
-        let headers: ?HeadersInit = rec.headers || {}
+        this._setHeaders = rec.setHeaders || false
+        let headers: HeadersInit = rec.headers || {}
 
         let isPlainObject: boolean = false
         const body = rec.body
@@ -384,19 +399,18 @@ export class Fetcher<Result, Params: Object> {
                 && !isBlob(body)
                 && !isUrlSearchParams
             if (isUrlSearchParams || isPlainObject) {
-                if (!headers) {
-                    headers = {}
-                }
                 const ctxType: string = isUrlSearchParams
                     ? 'application/x-www-form-urlencoded;charset=utf-8'
                     : 'application/json'
 
                 if (typeof Headers !== 'undefined' && headers instanceof Headers) {
                     if (!headers.has('Content-Type')) {
+                        headers = new Headers(headers)
                         headers.set('Content-Type', ctxType)
                     }
-                } else if (!(headers: Object)['Content-Type']) {
-                    (headers: Object)['Content-Type'] = ctxType
+                } else if (headers && !(headers: Object)['Content-Type']) {
+                    headers = ({...headers}: Object)
+                    ;(headers: Object)['Content-Type'] = ctxType
                 }
             }
         }
@@ -448,7 +462,11 @@ export class Fetcher<Result, Params: Object> {
                 ? {...this._params, ...rec.params || {}}
                 : rec.params,
             headers: rec.headers
-                ? mergeHeaders(headers, rec.headers)
+                ? mergeHeaders(
+                    rec.setHeaders === undefined ? this._setHeaders : rec.setHeaders,
+                    headers,
+                    rec.headers
+                )
                 : headers
         }): any)
     }
