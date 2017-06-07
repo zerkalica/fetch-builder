@@ -13,6 +13,8 @@ export type PostProcess<I, O> = (params: I) => O
 export type Preprocess<Result, Params>
     = (req: IFetcher<Result, Params>) => Promise<IFetcher<Result, Params>>
 
+export type MethodType = string
+
 /**
  * Input args for Fetcher
  *
