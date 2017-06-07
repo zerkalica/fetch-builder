@@ -318,7 +318,7 @@ export class Loader<Result> {
         this._fetcher = fetcher || null
     }
 
-    _onError: (err: Error) => void = (err: Error) => {
+    _onError: (err: Error) => any = (err: Error) => {
         this.reset()
         throw err
     }
