@@ -1,0 +1,37 @@
+{
+  "name": "fetch-builder",
+  "version": "2.0.0",
+  "license": "MIT",
+  "description": "Fetch wrapper",
+  "author": {
+    "name": "Stefan Zerkalica",
+    "email": "zerkalica@gmail.com"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": "https://github.com/zerkalica/fetch-builder",
+  "bugs": {
+    "url": "https://github.com/zerkalica/fetch-builder/issues"
+  },
+  "homepage": "https://github.com/zerkalica/fetch-builder/packages/fetch-builder/#readme",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "*.map",
+    "*.js",
+    "*.md",
+    "package.json",
+    "LICENSE",
+    "@types",
+    "dist"
+  ],
+  "keywords": [
+    "fetch",
+    "wrapper"
+  ],
+  "peerDependencies": {
+    "typescript": "=>2.8.3"
+  }
+}

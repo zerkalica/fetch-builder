@@ -1,67 +1,34 @@
 {
   "name": "fetch-builder",
-  "version": "1.1.15",
-  "description": "RequestOptions builder for whatwg-fetch",
-  "config": {
-    "builddir": "."
-  },
+  "version": "2.0.0",
+  "description": "Pluggable fetch wrapper",
+  "private": true,
   "scripts": {
-    "postinstall": "test -d conf && conf/resources/postinstall.sh $npm_package_name || exit 0",
-    "prepush": "exit 0 && npm test",
-    "prepublish": "conf/resources/prepublish.sh",
-    "preversion": "conf/resources/checkgit.sh && npm test && npm run build",
-    "postversion": "git push && git push --tags",
-    "precommit": "exit 0",
-    "clean": "rm -rf $npm_package_config_builddir/dist coverage",
-    "build": "npm run clean && babel src --source-maps --out-dir $npm_package_config_builddir/dist",
-    "build.dev": "babel src --source-maps --out-dir $npm_package_config_builddir/dist --watch",
-    "lint": "eslint src",
-    "check": "flow check",
-    "testonly": "mocha",
-    "test": "npm run lint && npm run check && npm run testonly",
-    "test.dev": "npm run testonly -- --growl --watch",
-    "test.cov": "babel-istanbul cover --report text --report html node_modules/mocha/bin/_mocha"
+    "clean": "rm -rf packages/*/.rpt2_cache packages/*/dist",
+    "clean.all": "lerna clean --yes && rm -rf package-lock.json packages/*/package-lock.json node_modules packages/*/.rpt2_cache packages/*/dist docs/*",
+    "up": "npm run clean.all ; ncu -ua ; npx lerna exec -- ncu -ua; npm install",
+    "build": "rollup -c rollup.config.js",
+    "dev": "rollup -w -c rollup.config.js",
+    "postinstall": "lerna bootstrap --hoist",
+    "publish": "npm run build && lerna publish --conventional-commits --yes",
+    "watch": "chokidar --initial -d 2000 -t 1000 'packages/*/dist/**' -c 'npm run build && cp -rvf packages/*/dist/* $npm_package_config_dest/node_modules/sync-fetch-*'",
+    "test": "jest",
+    "test.watch": "jest --watchAll",
+    "debug": "node --inspect-brk node_modules/.bin/jest --runInBand"
   },
-  "author": "Stefan Zerkalica <zerkalica@gmail.com>",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "http://github.com/zerkalica/fetch-builder.git"
+  "author": {
+    "name": "Stefan Zerkalica",
+    "email": "zerkalica@gmail.com"
   },
-  "keywords": [
-    "immutable",
-    "whatwg-fetch",
-    "fetch",
-    "wrapper",
-    "builder"
-  ],
-  "files": [
-    "*.map",
-    "*.js",
-    "*.flow",
-    ".flowconfig",
-    "README.md",
-    "LICENSE",
-    "src",
-    "dist",
-    "flow-typed"
-  ],
+  "license": "ISC",
   "devDependencies": {
-    "babel-cli": "^6.24.1",
-    "babel-core": "^6.24.1",
-    "babel-plugin-espower": "^2.3.2",
-    "babel-plugin-syntax-flow": "^6.18.0",
-    "babel-plugin-transform-flow-strip-types": "^6.22.0",
-    "babel-preset-es2015": "^6.24.1",
-    "babel-preset-stage-0": "^6.24.1",
-    "eslint": "^3.19.0",
-    "eslint-config-airplus": "^2.1.2",
-    "glob": "^7.1.2",
-    "mocha": "^3.4.2",
-    "power-assert": "^1.4.3",
-    "sinon": "^2.3.2"
-  },
-  "dependencies": {
-    "es6-error": "^4.0.2"
+    "@types/jest": "^23.3.1",
+    "@types/node": "^10.7.0",
+    "chokidar-cli": "^1.2.0",
+    "jest": "^23.5.0",
+    "lerna": "^3.0.5",
+    "rollup": "^0.64.1",
+    "ts-jest": "^23.1.3",
+    "typescript": "^3.0.1"
   }
 }

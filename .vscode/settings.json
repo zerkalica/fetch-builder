@@ -1,0 +1,4 @@
+{
+    "jest.showCoverageOnLoad": true,
+    "jest.pathToJest": "${workspaceFolder}/node_modules/.bin/jest"
+}
